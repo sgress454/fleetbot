@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "fleet": {
+      "type": "sse",
+      "url": "https://mcp-5924-getvictor.ngrok.io/mcp",
+      "disabled": false,
+      "alwaysAllow": [
+        "list_hosts",
+        "list_host_software"
+      ],
+      "timeout": 15
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+        "mcp__fleet__list_hosts",
+        "mcp__fleet__list_host_software"        
+    ],
+    "deny": [
+      "Task",
+      "Bash",
+      "Glob",
+      "Grep",
+      "LS",
+      "Read",
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "NotebookRead",
+      "NotebookEdit",
+      "WebFetch",
+      "TodoRead",
+      "TodoWrite",
+      "WebSearch"
+    ]
+  }
+}

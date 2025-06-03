@@ -3,6 +3,8 @@ import os
 
 import json
 import re
+import subprocess
+import time
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -60,11 +62,58 @@ def handle_app_mention(client, event, say):
         message_text = message_text[len(f"<@{bot_user_id}>"):].strip()
     print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}")
 
-    client.chat_postMessage(
+    # Post the initial "Hold your horses" message.
+    response = client.chat_postMessage(
         channel=channel_id,
-        text=f"You said: '{message_text}'",
+        text=f"Hold your 🐴🐴, I'm thinking about it...",
         thread_ts=thread_ts
     )
+    response_message_ts = response["ts"]
+    if not response_message_ts:
+        print(f"Error: Could not post initial message in channel {channel_id}.")
+        return
+
+    # Claude it up
+    process = subprocess.Popen(
+        ["claude", "-p", message_text, "--mcp-config", "./mcp-servers.json", "--output-format", "stream-json", "--system-prompt", "You are an IT admin.", "--verbose"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )    
+    
+    try:
+        for line in process.stdout:
+            # Parse the line as JSON.
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line.strip())
+            except json.JSONDecodeError:
+                print(f"Error decoding JSON: {line.strip()}")
+                continue
+            
+            
+            client.chat_postMessage(
+               channel=channel_id,
+                text=line.strip(),
+                thread_ts=thread_ts
+            )
+        for line in process.stderr:
+            print("STDERR:", line.strip())
+    finally:
+        process.stdout.close()
+        process.stderr.close()
+        return_code = process.wait()
+        print(f"Process exited with code {return_code}")    
+
+    # # Replace the initial message with the response.
+    # client.chat_update(
+    #     channel=channel_id,
+    #     ts=response_message_ts,
+    #     text="You said: " + message_text,
+    #     thread_ts=thread_ts
+    # )
 
 # Start your app
 if __name__ == "__main__":

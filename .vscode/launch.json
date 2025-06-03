@@ -8,9 +8,9 @@
         "name": "[langboi] Run file",
         "type": "debugpy",
         "request": "launch",
-        "program": "${file}",
+        "program": "main.py",
         "console": "integratedTerminal",
-        "envFile": "${workspaceFolder}/env"
+        "envFile": "${workspaceFolder}/.env"
         }
     ]
 }

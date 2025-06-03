@@ -12,17 +12,28 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 # Initializes your app with your bot token and socket mode handler
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-trigger = r"simply (\w+) (.*)[!.?]?$"
-
 # Get the bot user ID from the auth test
 bot_user_id = app.client.auth_test()["user_id"]
+
+# Claude CLI options.
+CLAUDE_CLI_OPTIONS = [
+    "claude",
+    "--mcp-config", 
+    "./mcp-servers.json", 
+    "--output-format", 
+    "stream-json", 
+    "--system-prompt", 
+    "You are an IT admin designed to answer questions about a Fleet DM deployment.  Your responses are formatted for Slack message: for bold text, surround the text with single asterisks.  For italics, surround the text with underscores.  For code blocks, use triple backticks.  For inline code, use single backticks.  For links, use the format <https://example.com|link text>.  Do not include any other formatting besides numbered lists or bulleted lists.  Do not attempt to use # characters to create headings.  Do not use any other formatting besides what is described here.", 
+    "--verbose"
+]
 
 if not bot_user_id:
     print("Error: Could not retrieve bot user ID. Please check your SLACK_BOT_TOKEN.")
     sys.exit(1)
 
-# The set of threads we know were started by @-mentioning this bot.
-thread_ids = set()
+# A dictionary mapping thread IDs to Clause session IDs.
+threads = {}
+
 # TODO - keep a deny-list of threads that were not started by @-mentioning this bot,
 # with a limited size.
 
@@ -34,7 +45,7 @@ def handle_app_mention(client, event, say):
     thread_ts = event.get("thread_ts", None)
     # If this is a new thread, check if the message starts with an @-mention of the bot.
     message_text = event.get("text", "")
-    if thread_ts is None or thread_ts not in thread_ids:
+    if thread_ts is None or thread_ts not in threads:
         # If the thread timestamp is None, this is a new thread.
         if thread_ts is None:
             thread_text = message_text
@@ -55,7 +66,7 @@ def handle_app_mention(client, event, say):
             return
         # Add the thread ID to the set of known threads.
         thread_ts = event["ts"]
-        thread_ids.add(thread_ts)
+        threads[thread_ts] = None
 
     # Remove the bot's own @-mention from the text.
     if message_text.startswith(f"<@{bot_user_id}>"):
@@ -68,14 +79,17 @@ def handle_app_mention(client, event, say):
         text=f"Hold your 🐴🐴, I'm thinking about it...",
         thread_ts=thread_ts
     )
-    response_message_ts = response["ts"]
-    if not response_message_ts:
+    thinking_message_ts = response["ts"]
+    if not thinking_message_ts:
         print(f"Error: Could not post initial message in channel {channel_id}.")
         return
 
     # Claude it up
+    cli_options = [*CLAUDE_CLI_OPTIONS, "-p", message_text]
+    if threads[thread_ts] is not None:
+        cli_options.extend(["-r", threads[thread_ts]])
     process = subprocess.Popen(
-        ["claude", "-p", message_text, "--mcp-config", "./mcp-servers.json", "--output-format", "stream-json", "--system-prompt", "You are an IT admin.", "--verbose"],
+        cli_options,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -92,13 +106,41 @@ def handle_app_mention(client, event, say):
             except json.JSONDecodeError:
                 print(f"Error decoding JSON: {line.strip()}")
                 continue
-            
-            
-            client.chat_postMessage(
-               channel=channel_id,
-                text=line.strip(),
-                thread_ts=thread_ts
-            )
+            if "type" not in data:
+                print(f"Unexpected data format: {data}")
+                continue
+            if data["type"] == "system":
+                # Grab the session ID from the system message.
+                if "session_id" in data:
+                    threads[thread_ts] = data["session_id"]
+                    print(f"Session ID for thread {thread_ts} is {data['session_id']}")
+                continue
+            if data["type"] == "assistant":
+                # Get the content of the assistant message.
+                if "message" not in data or "content" not in data["message"]:
+                    print(f"Unexpected assistant message format: {data}")
+                    continue
+                content = data["message"]["content"][0]
+                # Get the first value in the content array.
+                if content["type"] != "text":
+                    print(f"Ignoring assistant content of type `{content['type']}`")
+                    continue
+                claude_message = content["text"]
+                # If we still have the initial "thinking" message, replace it with the Claude response.
+                if thinking_message_ts is not None:
+                    client.chat_update(
+                        channel=channel_id,
+                        ts=thinking_message_ts,
+                        text=claude_message,
+                    )
+                    thinking_message_ts = None
+                # Otherwise post the Claude response as a new message in the thread.
+                else:
+                    client.chat_postMessage(
+                        channel=channel_id,
+                        text=claude_message,
+                        thread_ts=thread_ts
+                )
         for line in process.stderr:
             print("STDERR:", line.strip())
     finally:
@@ -106,14 +148,6 @@ def handle_app_mention(client, event, say):
         process.stderr.close()
         return_code = process.wait()
         print(f"Process exited with code {return_code}")    
-
-    # # Replace the initial message with the response.
-    # client.chat_update(
-    #     channel=channel_id,
-    #     ts=response_message_ts,
-    #     text="You said: " + message_text,
-    #     thread_ts=thread_ts
-    # )
 
 # Start your app
 if __name__ == "__main__":

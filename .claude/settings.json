@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
         "mcp__fleet__list_hosts",
-        "mcp__fleet__list_host_software"        
+        "mcp__fleet__list_host_software",
+        "mcp__fleet__get_host"
     ],
     "deny": [
       "Task",

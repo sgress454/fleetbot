@@ -57,50 +57,93 @@ if not bot_user_id:
     sys.exit(1)
 
 # A dictionary mapping thread IDs to Clause session IDs.
-threads = {}
+allowed_threads = {}
+denied_threads = {}
 
 # TODO - keep a deny-list of threads that were not started by @-mentioning this bot,
 # with a limited size.
 
 @app.event("message")
-def handle_app_mention(client, event, say):
+def handle_message(client, event, say):
     # Get the channel ID of the channel where the message was sent
     channel_id = event["channel"]
     # Get the thread timestamp if this is a message in an existing thread.
     thread_ts = event.get("thread_ts", None)
     # If this is a new thread, check if the message starts with an @-mention of the bot.
     message_text = event.get("text", "")
-    if thread_ts is None or thread_ts not in threads:
-        # If the thread timestamp is None, this is a new thread.
-        if thread_ts is None:
-            thread_text = message_text
-        else:
-            # Get the text of the first message in the thread.
-            response = client.conversations_replies(
-                channel=channel_id,
-                ts=thread_ts,
-                limit=1
-            )
-            if not response.get("messages"):
-                print(f"Error: Could not retrieve messages for thread {thread_ts} in channel {channel_id}.")
-                return
-            thread_text = response["messages"][0].get("text", "")
-        # Check if the message starts with an @-mention of the bot.
-        if not thread_text.startswith(f"<@{bot_user_id}>"):
-            print(f"Thread does not start with an @-mention of the bot: {event.get('text', '')}")
-            return
-        # Add the thread ID to the set of known threads.
-        thread_ts = event["ts"]
-        threads[thread_ts] = None
+    # Determine if this is an @-mention of the bot.
+    is_mention = message_text.startswith(f"<@{bot_user_id}>")
 
+    # If this is a new thread or a thread on the deny-list, 
+    # and the message is not an @-mention of the bot,
+    # put it in the deny list.
+    if (thread_ts is None or thread_ts in denied_threads) and not is_mention:
+        denied_threads[thread_ts or event["ts"]] = {}
+        return
+
+    # If this is an existing thread that's not on the allow-list,
+    # scan all messages in the thread to see if there's an @-mention of the bot.
+    conversation_context = []
+    if thread_ts is None:
+        allowed_threads[event["ts"]] = {
+            "posted_initial_message": False,
+            "session_id": None
+        }
+        thread_ts = event["ts"]
+    elif thread_ts not in allowed_threads:
+        # Get all messages in the thread.
+        response = client.conversations_replies(
+            channel=channel_id,
+            ts=thread_ts
+        )
+        if not response.get("messages"):
+            print(f"Error: Could not retrieve messages for thread {thread_ts} in channel {channel_id}.")
+            return
+        # Check if any message in the thread starts with an @-mention of the bot.
+        convo_has_mention = False
+        for message in response["messages"]:
+            convo_msg_text = message.get("text", "")
+            if not convo_msg_text:
+                continue
+            convo_msg = {
+                "text": convo_msg_text
+            }
+            if message.get("user") == bot_user_id:
+                convo_msg["speaker"] = "assistant"
+                convo_has_mention = True
+            else:
+                convo_msg["speaker"] = "user"
+                if message.get("text", "").startswith(f"<@{bot_user_id}>"):
+                    convo_has_mention = True
+            conversation_context.append(convo_msg)
+        if convo_has_mention:
+            allowed_threads[thread_ts] = {
+                "posted_initial_message": thread_ts is not None,
+                "session_id": None
+            }
+            if thread_ts in denied_threads:
+                del denied_threads[thread_ts]
+        else:
+            denied_threads[thread_ts] = {}
+            return
+        
+    # At this point, we know that this thread involves the bot somehow.
     # Remove the bot's own @-mention from the text.
     if message_text.startswith(f"<@{bot_user_id}>"):
         message_text = message_text[len(f"<@{bot_user_id}>"):].strip()
-    print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}")
 
-    # If we have no sessio ID for this thread, post an initial "thinking" message.
+    print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}")
+    if allowed_threads[thread_ts]["session_id"] is not None:
+        print(f"CONTINUING WITH SESSION: {allowed_threads[thread_ts]['session_id']}")
+    elif len(conversation_context) > 0:
+        print("JOINING PREVIOUS CONVERSATION FOR THREAD")
+    else:
+        print("STARTING NEW CONVERSATION FOR THREAD")
+
+    # If we have no session ID for this thread, post an initial "thinking" message.
     # Otherwise, post a simpler "thinking" message.
-    thinking_message = THINKING_MESSAGES[random.randint(0, len(THINKING_MESSAGES) - 1)] if threads[thread_ts] is None else "🤔 Thinking..."
+    thinking_message = THINKING_MESSAGES[random.randint(0, len(THINKING_MESSAGES) - 1)] if allowed_threads[thread_ts]["posted_initial_message"] is False else "🤔 Thinking..."
+    allowed_threads[thread_ts]["posted_initial_message"] = True
     response = client.chat_postMessage(
         channel=channel_id,
         text=thinking_message,
@@ -112,9 +155,18 @@ def handle_app_mention(client, event, say):
         return
 
     # Claude it up
-    cli_options = [*CLAUDE_CLI_OPTIONS, "-p", message_text]
-    if threads[thread_ts] is not None:
-        cli_options.extend(["-r", threads[thread_ts]])
+    claude_message = message_text
+    if len(conversation_context) > 0:
+        claude_message = f"""
+        You are continuing a conversation with the user. Here is the context:
+        {json.dumps(conversation_context, indent=2)}
+        
+        The user just said:
+        {message_text}
+        """
+    cli_options = [*CLAUDE_CLI_OPTIONS, "-p", claude_message]
+    if allowed_threads[thread_ts]["session_id"] is not None:
+        cli_options.extend(["-r", allowed_threads[thread_ts]["session_id"]])
     process = subprocess.Popen(
         cli_options,
         stdout=subprocess.PIPE,
@@ -140,7 +192,7 @@ def handle_app_mention(client, event, say):
             if data["type"] == "system":
                 # Grab the session ID from the system message.
                 if "session_id" in data:
-                    threads[thread_ts] = data["session_id"]
+                    allowed_threads[thread_ts]["session_id"] = data["session_id"]
                     print(f"Session ID for thread {thread_ts} is {data['session_id']}")
                 continue
             if data["type"] == "assistant":

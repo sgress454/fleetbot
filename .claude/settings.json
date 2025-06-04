@@ -23,6 +23,7 @@
         "mcp__fleet__list_global_policies",
         "mcp__fleet__list_host_software",
         "mcp__fleet__list_hosts",
+        "mcp__fleet__list_hosts_by_label_or_platform",
         "mcp__fleet__list_labels",
         "mcp__fleet__list_os_versions",
         "mcp__fleet__list_queries",

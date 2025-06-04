@@ -1,9 +1,36 @@
 {
   "permissions": {
     "allow": [
-        "mcp__fleet__list_hosts",
+        "mcp__fleet__get_configuration_profile",
+        "mcp__fleet__get_configuration_profiles_summary",
+        "mcp__fleet__get_enroll_secrets",
+        "mcp__fleet__get_fleet_config",
+        "mcp__fleet__get_fleet_version",
+        "mcp__fleet__get_host_summary",
+        "mcp__fleet__get_host",
+        "mcp__fleet__get_hosts_count",
+        "mcp__fleet__get_label_hosts",
+        "mcp__fleet__get_label",
+        "mcp__fleet__get_labels_summary",
+        "mcp__fleet__get_mdm_summary",
+        "mcp__fleet__get_os_version",
+        "mcp__fleet__get_script_results",
+        "mcp__fleet__get_script",
+        "mcp__fleet__get_team_details",
+        "mcp__fleet__get_vulnerability",
+        "mcp__fleet__list_activities",
+        "mcp__fleet__list_configuration_profiles",
+        "mcp__fleet__list_global_policies",
         "mcp__fleet__list_host_software",
-        "mcp__fleet__get_host"
+        "mcp__fleet__list_hosts",
+        "mcp__fleet__list_labels",
+        "mcp__fleet__list_os_versions",
+        "mcp__fleet__list_queries",
+        "mcp__fleet__list_scripts",
+        "mcp__fleet__list_software_titles",
+        "mcp__fleet__list_software_versions",
+        "mcp__fleet__list_teams",
+        "mcp__fleet__list_vulnerabilities"
     ],
     "deny": [
       "Task",

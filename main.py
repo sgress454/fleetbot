@@ -2,9 +2,8 @@ import sys
 import os
 
 import json
-import re
+import random
 import subprocess
-import time
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -24,7 +23,13 @@ CLAUDE_CLI_OPTIONS = [
     "stream-json", 
     "--system-prompt", 
     """
-    You are an IT admin designed to answer questions about a Fleet DM deployment. Your responses are formatted for Slack messages using ONLY these formatting options:
+    You are an IT admin designed to answer questions about a Fleet DM deployment. Be conscise and to the point. Do not offer additional information beyond what is asked.
+    
+    If a tool allows filtering by label_id, first use the mcp__fleet__list_labels tool to get a list of labels.
+
+    If you get a response from a tool that you do not expect or understand, mention it explictly in your response.
+    
+    Your responses are formatted for Slack messages using ONLY these formatting options:
     - For bold text: surround with single asterisks (*bold*)
     - For italics: surround with underscores (_italic_)    
     - For inline code: use single backticks (`)
@@ -32,6 +37,19 @@ CLAUDE_CLI_OPTIONS = [
     CRITICAL: Never use # characters for any reason. Do not create headings with # symbols. Do not use any markdown formatting other than what is explicitly listed above. If you need to emphasize section breaks, use bold text with asterisks instead.    
     """,
     "--verbose"
+]
+
+THINKING_MESSAGES = [
+    "Hold your 🐴🐴, I'm thinking about it...",
+    "Just a moment, I'm working on it...",
+    "Give me a second, I'm on it...",
+    "Hang tight, I'm processing your request...",
+    "Let me think about that for a moment...",
+    "Processing your request, please hold on...",
+    "Consulting the office :cat: for advice…",
+    "Telling my :turtle: CPU to hurry up...",
+    "Pausing to pet the :dog2:... almost there!",
+    "Looking for the missing :bone: of knowledge...",
 ]
 
 if not bot_user_id:
@@ -80,10 +98,12 @@ def handle_app_mention(client, event, say):
         message_text = message_text[len(f"<@{bot_user_id}>"):].strip()
     print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}")
 
-    # Post the initial "Hold your horses" message.
+    # If we have no sessio ID for this thread, post an initial "thinking" message.
+    # Otherwise, post a simpler "thinking" message.
+    thinking_message = THINKING_MESSAGES[random.randint(0, len(THINKING_MESSAGES) - 1)] if threads[thread_ts] is None else "🤔 Thinking..."
     response = client.chat_postMessage(
         channel=channel_id,
-        text=f"Hold your 🐴🐴, I'm thinking about it...",
+        text=thinking_message,
         thread_ts=thread_ts
     )
     thinking_message_ts = response["ts"]
@@ -109,6 +129,7 @@ def handle_app_mention(client, event, say):
             if not line.strip():
                 continue
             try:
+                print("CLAUDE:", line.strip())
                 data = json.loads(line.strip())
             except json.JSONDecodeError:
                 print(f"Error decoding JSON: {line.strip()}")

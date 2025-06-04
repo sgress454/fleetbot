@@ -2,5 +2,8 @@
 bin
 include
 lib
+lib64
 .env
+env
 pyvenv.cfg
+mcp-servers.json

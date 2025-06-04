@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "fleet": {
-      "type": "sse",
-      "url": "https://mcp-5924-getvictor.ngrok.io/mcp"
-    }
-  }
-}

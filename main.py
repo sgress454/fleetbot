@@ -71,15 +71,24 @@ def handle_message(client, event, say):
     thread_ts = event.get("thread_ts", None)
     # If this is a new thread, check if the message starts with an @-mention of the bot.
     message_text = event.get("text", "")
-    # Determine if this is an @-mention of the bot.
-    is_mention = message_text.startswith(f"<@{bot_user_id}>")
 
+    # If this is a message @-mentioning the bot, remove the mention from the text.
+    if message_text.startswith(f"<@{bot_user_id}>"):
+        message_text = message_text[len(f"<@{bot_user_id}>"):].strip()
+    else:
+    # Otherwise ignore the message.
+        return
+
+    # The allow/deny lists are intended to allow the bot to respond to messages
+    # that are not directly @-mentioning it. Turning off this functionality for
+    # now in favor of only responding to @-mentions, but leaving the code here for reference.
+    #
     # If this is a new thread or a thread on the deny-list, 
     # and the message is not an @-mention of the bot,
     # put it in the deny list.
-    if (thread_ts is None or thread_ts in denied_threads) and not is_mention:
-        denied_threads[thread_ts or event["ts"]] = {}
-        return
+    # if (thread_ts is None or thread_ts in denied_threads) and not is_mention:
+    #     denied_threads[thread_ts or event["ts"]] = {}
+    #     return
 
     # If this is an existing thread that's not on the allow-list,
     # scan all messages in the thread to see if there's an @-mention of the bot.
@@ -127,11 +136,6 @@ def handle_message(client, event, say):
             denied_threads[thread_ts] = {}
             return
         
-    # At this point, we know that this thread involves the bot somehow.
-    # Remove the bot's own @-mention from the text.
-    if message_text.startswith(f"<@{bot_user_id}>"):
-        message_text = message_text[len(f"<@{bot_user_id}>"):].strip()
-
     print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}")
     if allowed_threads[thread_ts]["session_id"] is not None:
         print(f"CONTINUING WITH SESSION: {allowed_threads[thread_ts]['session_id']}")

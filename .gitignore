@@ -7,3 +7,4 @@ lib64
 env
 pyvenv.cfg
 mcp-servers.json
+supervisor.conf

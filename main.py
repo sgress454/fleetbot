@@ -171,6 +171,7 @@ def handle_message(client, event, say):
     cli_options = [*CLAUDE_CLI_OPTIONS, "-p", claude_message]
     if allowed_threads[thread_ts]["session_id"] is not None:
         cli_options.extend(["-r", allowed_threads[thread_ts]["session_id"]])
+    print(f"Running Claude with options: {cli_options}", flush=True)
     process = subprocess.Popen(
         cli_options,
         stdout=subprocess.PIPE,

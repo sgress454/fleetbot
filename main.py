@@ -231,7 +231,7 @@ def handle_message(client, event, say):
         process.stdout.close()
         process.stderr.close()
         return_code = process.wait()
-        print(f"Process exited with code {return_code}")   , flush=True 
+        print(f"Claude process exited with code {return_code}", flush=True)
 
 # Start your app
 if __name__ == "__main__":

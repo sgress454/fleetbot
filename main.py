@@ -24,7 +24,7 @@ def read_system_prompt():
         with open("system-prompt.txt", "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
-        print("Warning: system-prompt.txt not found, using default prompt")
+        print("Warning: system-prompt.txt not found, using default prompt", flush=True)
         return "You are an IT admin designed to answer questions about a Fleet DM deployment."
 
 # Claude CLI options.
@@ -53,7 +53,7 @@ THINKING_MESSAGES = [
 ]
 
 if not bot_user_id:
-    print("Error: Could not retrieve bot user ID. Please check your SLACK_BOT_TOKEN.")
+    print("Error: Could not retrieve bot user ID. Please check your SLACK_BOT_TOKEN.", flush=True)
     sys.exit(1)
 
 # A dictionary mapping thread IDs to Clause session IDs.
@@ -106,7 +106,7 @@ def handle_message(client, event, say):
             ts=thread_ts
         )
         if not response.get("messages"):
-            print(f"Error: Could not retrieve messages for thread {thread_ts} in channel {channel_id}.")
+            print(f"Error: Could not retrieve messages for thread {thread_ts} in channel {channel_id}.", flush=True)
             return
         # Check if any message in the thread starts with an @-mention of the bot.
         convo_has_mention = False
@@ -136,13 +136,13 @@ def handle_message(client, event, say):
             denied_threads[thread_ts] = {}
             return
         
-    print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}")
+    print(f"MESSAGE ON CHANNEL {channel_id} {thread_ts} {message_text}", flush=True)
     if allowed_threads[thread_ts]["session_id"] is not None:
-        print(f"CONTINUING WITH SESSION: {allowed_threads[thread_ts]['session_id']}")
+        print(f"CONTINUING WITH SESSION: {allowed_threads[thread_ts]['session_id']}", flush=True)
     elif len(conversation_context) > 0:
-        print("JOINING PREVIOUS CONVERSATION FOR THREAD")
+        print("JOINING PREVIOUS CONVERSATION FOR THREAD", flush=True)
     else:
-        print("STARTING NEW CONVERSATION FOR THREAD")
+        print("STARTING NEW CONVERSATION FOR THREAD", flush=True)
 
     # If we have no session ID for this thread, post an initial "thinking" message.
     # Otherwise, post a simpler "thinking" message.
@@ -155,7 +155,7 @@ def handle_message(client, event, say):
     )
     thinking_message_ts = response["ts"]
     if not thinking_message_ts:
-        print(f"Error: Could not post initial message in channel {channel_id}.")
+        print(f"Error: Could not post initial message in channel {channel_id}.", flush=True)
         return
 
     # Claude it up
@@ -185,29 +185,29 @@ def handle_message(client, event, say):
             if not line.strip():
                 continue
             try:
-                print("CLAUDE:", line.strip())
+                print("CLAUDE:", line.strip(), flush=True)
                 data = json.loads(line.strip())
             except json.JSONDecodeError:
-                print(f"Error decoding JSON: {line.strip()}")
+                print(f"Error decoding JSON: {line.strip()}", flush=True)
                 continue
             if "type" not in data:
-                print(f"Unexpected data format: {data}")
+                print(f"Unexpected data format: {data}", flush=True)
                 continue
             if data["type"] == "system":
                 # Grab the session ID from the system message.
                 if "session_id" in data:
                     allowed_threads[thread_ts]["session_id"] = data["session_id"]
-                    print(f"Session ID for thread {thread_ts} is {data['session_id']}")
+                    print(f"Session ID for thread {thread_ts} is {data['session_id']}", flush=True)
                 continue
             if data["type"] == "assistant":
                 # Get the content of the assistant message.
                 if "message" not in data or "content" not in data["message"]:
-                    print(f"Unexpected assistant message format: {data}")
+                    print(f"Unexpected assistant message format: {data}", flush=True)
                     continue
                 content = data["message"]["content"][0]
                 # Get the first value in the content array.
                 if content["type"] != "text":
-                    print(f"Ignoring assistant content of type `{content['type']}`")
+                    print(f"Ignoring assistant content of type `{content['type']}`", flush=True)
                     continue
                 claude_message = content["text"]
                 # If we still have the initial "thinking" message, replace it with the Claude response.
@@ -226,12 +226,12 @@ def handle_message(client, event, say):
                         thread_ts=thread_ts
                 )
         for line in process.stderr:
-            print("STDERR:", line.strip())
+            print("STDERR:", line.strip(), flush=True)
     finally:
         process.stdout.close()
         process.stderr.close()
         return_code = process.wait()
-        print(f"Process exited with code {return_code}")    
+        print(f"Process exited with code {return_code}")   , flush=True 
 
 # Start your app
 if __name__ == "__main__":

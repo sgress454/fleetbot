@@ -5,14 +5,27 @@ import json
 import random
 import subprocess
 
+from dotenv import load_dotenv
+
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+load_dotenv()
 
 # Initializes your app with your bot token and socket mode handler
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 # Get the bot user ID from the auth test
 bot_user_id = app.client.auth_test()["user_id"]
+
+# Read the system prompt from file
+def read_system_prompt():
+    try:
+        with open("system-prompt.txt", "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        print("Warning: system-prompt.txt not found, using default prompt")
+        return "You are an IT admin designed to answer questions about a Fleet DM deployment."
 
 # Claude CLI options.
 CLAUDE_CLI_OPTIONS = [
@@ -22,20 +35,7 @@ CLAUDE_CLI_OPTIONS = [
     "--output-format", 
     "stream-json", 
     "--system-prompt", 
-    """
-    You are an IT admin designed to answer questions about a Fleet DM deployment. Be conscise and to the point. Do not offer additional information beyond what is asked.
-    
-    If a tool allows filtering by label_id, first use the mcp__fleet__list_labels tool to get a list of labels.
-
-    If you get a response from a tool that you do not expect or understand, mention it explictly in your response.
-    
-    Your responses are formatted for Slack messages using ONLY these formatting options:
-    - For bold text: surround with single asterisks (*bold*)
-    - For italics: surround with underscores (_italic_)    
-    - For inline code: use single backticks (`)
-    - Numbered lists and bulleted lists are allowed
-    CRITICAL: Never use # characters for any reason. Do not create headings with # symbols. Do not use any markdown formatting other than what is explicitly listed above. If you need to emphasize section breaks, use bold text with asterisks instead.    
-    """,
+    read_system_prompt(),
     "--verbose"
 ]
 

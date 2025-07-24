@@ -10,7 +10,8 @@
         "request": "launch",
         "program": "main.py",
         "console": "integratedTerminal",
-        "envFile": "${workspaceFolder}/.env"
+        "envFile": "${workspaceFolder}/.env",
+        "python": "${workspaceFolder}/bin/python"
         }
     ]
 }

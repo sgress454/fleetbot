@@ -12,8 +12,10 @@ A hyper-intelligent yet modest and down-to-earth robot that answers all of your 
 
 ## To set up
 
-Run `./setup.sh`
+1. Create an .env file containing `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` keys
+2. Either log in to Claude CLI using an Anthropic account (for example with Claude Pro) _or_ add an `ANTHROPIC_API_KEY` key to `.env` as well.
+3. Run `./setup.sh` to set up the bot's environment.
 
-# To install service
+# To install Fleetbot as a service
 
 Run `./install.sh`

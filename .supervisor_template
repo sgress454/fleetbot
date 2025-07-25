@@ -1,7 +1,0 @@
-[program:fleetbot]
-directory=${DIR}
-command=${DIR}/bin/python3 main.py
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/fleetbot.err.log
-stdout_logfile=/var/log/fleetbot.out.log

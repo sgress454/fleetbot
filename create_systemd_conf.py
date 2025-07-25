@@ -7,13 +7,13 @@ import sys
 from pathlib import Path
 
 if __name__ == "__main__":
-    output_file = "supervisor.conf"
+    output_file = "fleetbot.service"
     
     # Get the directory where this script is located (should be the repo root)
     repo_dir = Path(__file__).parent.absolute()
     
     # Path to the template file
-    template_path = repo_dir / ".supervisor_template"
+    template_path = repo_dir / ".systemd_template"
     output_path = repo_dir / output_file
     
     # Check if template file exists
@@ -28,6 +28,9 @@ if __name__ == "__main__":
         
         # Replace ${DIR} with the repository directory
         processed_content = template_content.replace('${DIR}', str(repo_dir))
+
+        # Replace ${USER} with the current user
+        processed_content = processed_content.replace('${USER}', str(Path.home().owner()))
         
         # Save to output file
         with open(output_path, 'w') as f:

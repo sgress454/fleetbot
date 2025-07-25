@@ -1,0 +1,13 @@
+[Unit]
+Description=Fleetbot Slack App
+After=network.target
+
+[Service]
+User=scott
+WorkingDirectory=/Users/scott/Development/fleetbot
+ExecStart=/Users/scott/Development/fleetbot/.venv/bin/python3 /Users/scott/Development/fleetbot/main.py
+EnvironmentFile=/Users/scott/Development/fleetbot/.env
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

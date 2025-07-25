@@ -2,11 +2,18 @@
 
 A hyper-intelligent yet modest and down-to-earth robot that answers all of your burning Fleet questions.
 
+## Prerequisites
+
+* Python 3.8+
+* Node.js 18+
+* A system that uses `systemd` (most Linux systems) if you want to install as a service.
+* [Claude CLI](https://docs.anthropic.com/en/docs/claude-code/setup)
+* The Fleet MCP server running locally.
+
 ## To set up
 
-1. Create a Python virtual environment e.g. `python3 -m venv .`
-2. Start your virtual env with `source ./bin/activate`
-2. Install requirements with `pip3 install -r ./requirements.txt`
-3. Run from VSCode using the launch command, or:
-4. `pip3 install dotenv-cli`
-5. `dotenv python3 main.py`
+Run `./setup.sh`
+
+# To install service
+
+Run `./install.sh`

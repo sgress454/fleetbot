@@ -1,4 +1,6 @@
-python3 create_supervisor_conf.py
-sudo cp supervisor.conf /etc/supervisor/conf.d/fleetbot.conf
-sudo supervisorctl reread
-sudo supervisorctl update
+python3 create_systemd_conf.py
+sudo cp systemd.conf /etc/systemd/system/fleetbot.service
+sudo systemctl daemon-reload
+sudo systemctl enable fleetbot.service
+sudo systemctl start fleetbot.service
+rm systemd.conf

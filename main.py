@@ -178,6 +178,7 @@ def handle_message(client, event, say):
         capture_output=True,
     )    
     lines = claudeResponse.stdout.decode("utf-8").splitlines()
+    print("FINISHED RUNNING CLAUDE", flush=True)
     
     for line in lines:
         # Parse the line as JSON.

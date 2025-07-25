@@ -5,6 +5,7 @@ import json
 import random
 import subprocess
 
+
 from dotenv import load_dotenv
 
 from slack_bolt import App
@@ -172,67 +173,57 @@ def handle_message(client, event, say):
     if allowed_threads[thread_ts]["session_id"] is not None:
         cli_options.extend(["-r", allowed_threads[thread_ts]["session_id"]])
     print(f"Running Claude with options: {cli_options}", flush=True)
-    process = subprocess.Popen(
+    claudeResponse = subprocess.run(
         cli_options,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
+        capture_output=True,
     )    
+    lines = claudeResponse.stdout.decode("utf-8").splitlines()
     
-    try:
-        for line in process.stdout:
-            # Parse the line as JSON.
-            if not line.strip():
+    for line in lines:
+        # Parse the line as JSON.
+        if not line.strip():
+            continue
+        try:
+            print("CLAUDE:", line.strip(), flush=True)
+            data = json.loads(line.strip())
+        except json.JSONDecodeError:
+            print(f"Error decoding JSON: {line.strip()}", flush=True)
+            continue
+        if "type" not in data:
+            print(f"Unexpected data format: {data}", flush=True)
+            continue
+        if data["type"] == "system":
+            # Grab the session ID from the system message.
+            if "session_id" in data:
+                allowed_threads[thread_ts]["session_id"] = data["session_id"]
+                print(f"Session ID for thread {thread_ts} is {data['session_id']}", flush=True)
+            continue
+        if data["type"] == "assistant":
+            # Get the content of the assistant message.
+            if "message" not in data or "content" not in data["message"]:
+                print(f"Unexpected assistant message format: {data}", flush=True)
                 continue
-            try:
-                print("CLAUDE:", line.strip(), flush=True)
-                data = json.loads(line.strip())
-            except json.JSONDecodeError:
-                print(f"Error decoding JSON: {line.strip()}", flush=True)
+            content = data["message"]["content"][0]
+            # Get the first value in the content array.
+            if content["type"] != "text":
+                print(f"Ignoring assistant content of type `{content['type']}`", flush=True)
                 continue
-            if "type" not in data:
-                print(f"Unexpected data format: {data}", flush=True)
-                continue
-            if data["type"] == "system":
-                # Grab the session ID from the system message.
-                if "session_id" in data:
-                    allowed_threads[thread_ts]["session_id"] = data["session_id"]
-                    print(f"Session ID for thread {thread_ts} is {data['session_id']}", flush=True)
-                continue
-            if data["type"] == "assistant":
-                # Get the content of the assistant message.
-                if "message" not in data or "content" not in data["message"]:
-                    print(f"Unexpected assistant message format: {data}", flush=True)
-                    continue
-                content = data["message"]["content"][0]
-                # Get the first value in the content array.
-                if content["type"] != "text":
-                    print(f"Ignoring assistant content of type `{content['type']}`", flush=True)
-                    continue
-                claude_message = content["text"]
-                # If we still have the initial "thinking" message, replace it with the Claude response.
-                if thinking_message_ts is not None:
-                    client.chat_update(
-                        channel=channel_id,
-                        ts=thinking_message_ts,
-                        text=claude_message,
-                    )
-                    thinking_message_ts = None
-                # Otherwise post the Claude response as a new message in the thread.
-                else:
-                    client.chat_postMessage(
-                        channel=channel_id,
-                        text=claude_message,
-                        thread_ts=thread_ts
+            claude_message = content["text"]
+            # If we still have the initial "thinking" message, replace it with the Claude response.
+            if thinking_message_ts is not None:
+                client.chat_update(
+                    channel=channel_id,
+                    ts=thinking_message_ts,
+                    text=claude_message,
                 )
-        for line in process.stderr:
-            print("STDERR:", line.strip(), flush=True)
-    finally:
-        process.stdout.close()
-        process.stderr.close()
-        return_code = process.wait()
-        print(f"Claude process exited with code {return_code}", flush=True)
+                thinking_message_ts = None
+            # Otherwise post the Claude response as a new message in the thread.
+            else:
+                client.chat_postMessage(
+                    channel=channel_id,
+                    text=claude_message,
+                    thread_ts=thread_ts
+            )
 
 # Start your app
 if __name__ == "__main__":
